@@ -2,26 +2,25 @@ const chai = require("chai");
 const chaiHttp = require("chai-http");
 const App = require("../app");
 const expect = chai.expect;
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 chai.use(chaiHttp);
 
-
 describe("Products", () => {
   let app;
+  let authToken;
 
   before(async () => {
     app = new App();
-    await Promise.all([app.connectDB(), app.setupMessageBroker()])
+    await Promise.all([app.connectDB(), app.setupMessageBroker()]);
 
-    // Authenticate with the auth microservice to get a token
-    const authRes = await chai
-      .request("http://localhost:3000")
-      .post("/login")
-      .send({ username: process.env.LOGIN_TEST_USER, password: process.env.LOGIN_TEST_PASSWORD });
+    // ✅ Tạo token hợp lệ bằng cùng JWT_SECRET (không cần gọi /login)
+    authToken = jwt.sign(
+      { userId: "testUser" },
+      process.env.JWT_SECRET || "yourSecretKey"
+    );
 
-    authToken = authRes.body.token;
-    console.log(authToken);
     app.start();
   });
 
@@ -41,11 +40,7 @@ describe("Products", () => {
         .request(app.app)
         .post("/api/products")
         .set("Authorization", `Bearer ${authToken}`)
-        .send({
-            name: "Product 1",
-            price: 10,
-            description: "Description of Product 1"
-          });
+        .send(product);
 
       expect(res).to.have.status(201);
       expect(res.body).to.have.property("_id");
@@ -69,4 +64,3 @@ describe("Products", () => {
     });
   });
 });
-
